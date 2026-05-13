@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>お金はいくら？プリント</title>
+<style>
+  :root {
+    --bg: #fdf6e3;
+    --surface: #fff8e7;
+    --border: #e8d5a3;
+    --text: #3d2c00;
+    --sub: #8a6f3a;
+    --accent: #e8913a;
+    --line: #3d2c00;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    font-family: 'BIZ UDPGothic', 'BIZ UDGothic', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  body {
+    padding: 16px;
+    padding-bottom: 80px;
+  }
+
+  /* ===== 操作バー ===== */
+  #toolbar {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: stretch;
+    z-index: 100;
+    background: rgba(255,255,255,0.92);
+    padding: 10px 12px;
+    border-radius: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+  .toolbar-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+  .toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .toolbar-label {
+    font-size: 12px;
+    color: var(--sub);
+    font-weight: bold;
+    min-width: 32px;
+  }
+  .tool-btn {
+    padding: 10px 18px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 22px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    font-family: inherit;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  }
+  .tool-btn:hover { background: #c97020; }
+  .tool-btn.sub {
+    background: white;
+    color: var(--text);
+    border: 2px solid var(--border);
+  }
+
+  /* ===== プリント本体 ===== */
+  #sheet {
+    max-width: 210mm;
+    margin: 0 auto;
+    background: white;
+    padding: 15mm 10mm;
+    border: 1px solid #ddd;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+
+  /* 名前欄 */
+  #header {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    padding-bottom: 6px;
+    margin-bottom: 12px;
+  }
+  #title-text {
+    font-size: 22px;
+    font-weight: bold;
+    color: var(--text);
+    flex-shrink: 0;
+  }
+  #name-row {
+    flex: 1;
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+  #name-label {
+    font-size: 16px;
+    font-weight: bold;
+  }
+  #name-field {
+    flex: 1;
+    max-width: 260px;
+    border-bottom: 1.5px solid var(--line);
+    height: 28px;
+  }
+
+  /* 問題グリッド */
+  #problems {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .problem {
+    border: 1.5px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    background: white;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .problem-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .problem-num {
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--text);
+  }
+  .problem-instruction {
+    font-size: 13px;
+    color: var(--sub);
+  }
+
+  .coins-area {
+    flex: 1;
+    min-height: 230px;
+    background: #fafafa;
+    border: 1px dashed #ccc;
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* バラバラ */
+  .coins-area.scattered { display: block; }
+  .coin-item {
+    position: absolute;
+    user-select: none;
+  }
+  .coin-item svg { display: block; }
+
+  /* 整列 */
+  .coins-area.aligned {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 4px;
+    padding: 6px;
+  }
+  .coins-area.aligned .coin-item {
+    position: relative;
+    left: auto !important;
+    top: auto !important;
+    transform: none !important;
+  }
+
+  /* 解答欄 */
+  .answer-row {
+    margin-top: 8px;
+    display: flex;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 4px;
+    font-size: 18px;
+  }
+  .answer-paren { font-weight: bold; }
+  .answer-line {
+    display: inline-block;
+    min-width: 90px;
+    border-bottom: 1.5px solid var(--line);
+    height: 26px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+    color: #c0392b;
+    padding-bottom: 2px;
+  }
+  .answer-yen { font-weight: bold; }
+
+  /* 答え表示モード */
+  .answer-shown .answer-line {
+    color: #c0392b;
+  }
+
+  /* ===== 歯車（左下） ===== */
+  #gear-btn {
+    position: fixed;
+    bottom: 12px;
+    left: 12px;
+    width: 40px;
+    height: 40px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    opacity: 0.5;
+    padding: 0;
+    z-index: 100;
+  }
+  #gear-btn:hover { opacity: 1; }
+
+  /* ===== 設定画面 ===== */
+  #settings-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.4);
+    z-index: 200;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+  }
+  #settings-overlay.show { display: flex; }
+
+  #settings-panel {
+    background: var(--bg);
+    border-radius: 16px;
+    padding: 20px 24px;
+    max-width: 560px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  }
+
+  #settings-title {
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--text);
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  .settings-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+  }
+  .settings-card h3 {
+    font-size: 14px;
+    color: var(--sub);
+    margin-bottom: 10px;
+  }
+
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 8px;
+  }
+  .setting-row:last-child { border-bottom: none; }
+
+  .setting-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--text);
+  }
+  .setting-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .step-btn {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: white;
+    font-size: 16px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .step-btn:hover { background: #fff0cc; }
+  .range-label {
+    font-size: 12px;
+    color: var(--sub);
+    margin: 0 3px;
+  }
+  .count-val {
+    font-size: 16px;
+    font-weight: bold;
+    min-width: 22px;
+    text-align: center;
+  }
+
+  .radio-group {
+    display: flex;
+    gap: 8px;
+  }
+  .radio-btn {
+    padding: 8px 16px;
+    border: 2px solid var(--border);
+    background: white;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--sub);
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .radio-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+
+  .settings-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 8px;
+  }
+
+  /* ===== 印刷 ===== */
+  @media print {
+    @page {
+      size: A4;
+      margin: 15mm 10mm;
+    }
+    body {
+      padding: 0;
+      background: white;
+    }
+    #toolbar, #gear-btn, #settings-overlay { display: none !important; }
+    #sheet {
+      max-width: none;
+      margin: 0;
+      padding: 0;
+      border: none;
+      box-shadow: none;
+    }
+    #header { margin-bottom: 8mm; }
+    #problems {
+      grid-template-rows: repeat(3, 1fr);
+      gap: 4mm;
+      height: 245mm;
+    }
+    .problem {
+      page-break-inside: avoid;
+      break-inside: avoid;
+      height: 100%;
+    }
+    .coins-area {
+      background: white;
+      border: 1px solid #999;
+      min-height: 0;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- 操作バー -->
+<div id="toolbar">
+  <div class="toolbar-actions">
+    <button class="tool-btn sub" onclick="regenerate()">新しい問題</button>
+    <button class="tool-btn" onclick="window.print()">印刷する</button>
+  </div>
+  <div class="toolbar-group">
+    <span class="toolbar-label">表示</span>
+    <button class="radio-btn active" data-view="scattered" onclick="setView('scattered')">バラバラ</button>
+    <button class="radio-btn" data-view="aligned" onclick="setView('aligned')">整列</button>
+  </div>
+  <div class="toolbar-group">
+    <span class="toolbar-label">答え</span>
+    <button class="radio-btn active" id="ans-off" onclick="setShowAnswer(false)">非表示</button>
+    <button class="radio-btn" id="ans-on" onclick="setShowAnswer(true)">表示</button>
+  </div>
+</div>
+
+<!-- プリント本体 -->
+<div id="sheet">
+  <div id="header">
+    <div id="title-text">お金はいくら？</div>
+    <div id="name-row">
+      <div id="name-label">名前</div>
+      <div id="name-field"></div>
+    </div>
+  </div>
+  <div id="problems"></div>
+</div>
+
+<!-- 歯車（左下） -->
+<button id="gear-btn" onclick="openSettings()" aria-label="設定">
+  <svg viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="1.8" width="100%" height="100%">
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+  </svg>
+</button>
+
+<!-- 設定画面 -->
+<div id="settings-overlay">
+  <div id="settings-panel">
+    <div id="settings-title">設定</div>
+
+    <div class="settings-card">
+      <h3>1ページあたりの問題数</h3>
+      <div class="setting-row">
+        <div class="setting-label">問題数</div>
+        <div class="setting-controls">
+          <button class="step-btn" onclick="changeCount(-1)">－</button>
+          <div class="count-val" id="count-val">6</div>
+          <button class="step-btn" onclick="changeCount(+1)">＋</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <h3>金種ごとの最小・最大枚数</h3>
+      <div id="settings-rows"></div>
+    </div>
+
+    <div class="settings-actions">
+      <button class="tool-btn sub" onclick="regenerate(); closeSettings();">新しい問題を作る</button>
+      <button class="tool-btn" onclick="closeSettings()">もどる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const DENOMS = [
+  { val: 10000, label: '10000円', type: 'note' },
+  { val: 5000,  label: '5000円',  type: 'note' },
+  { val: 1000,  label: '1000円',  type: 'note' },
+  { val: 500,   label: '500円',   type: 'coin' },
+  { val: 100,   label: '100円',   type: 'coin' },
+  { val: 50,    label: '50円',    type: 'coin' },
+  { val: 10,    label: '10円',    type: 'coin' },
+  { val: 5,     label: '5円',     type: 'coin' },
+  { val: 1,     label: '1円',     type: 'coin' },
+];
+
+let ranges = {
+  1:     { min: 0, max: 0 },
+  5:     { min: 0, max: 0 },
+  10:    { min: 0, max: 4 },
+  50:    { min: 0, max: 2 },
+  100:   { min: 0, max: 3 },
+  500:   { min: 0, max: 1 },
+  1000:  { min: 0, max: 0 },
+  5000:  { min: 0, max: 0 },
+  10000: { min: 0, max: 0 },
+};
+
+let viewMode = 'scattered';
+let problemCount = 6;
+let showAnswer = false;
+let currentProblems = [];
+
+/* ===== SVG生成 ===== */
+function coinSVG(val, size) {
+  const C = {
+    1:   { bg:'#b2b2b2', inner:'#d0d0d0', rim:'#444444', text:'1',   hole:false },
+    5:   { bg:'#c8a84b', inner:'#e0c060', rim:'#5a3a00', text:'5',   hole:true  },
+    10:  { bg:'#b87333', inner:'#d4946a', rim:'#4a1800', text:'10',  hole:false },
+    50:  { bg:'#b0b0b0', inner:'#d0d0d0', rim:'#333333', text:'50',  hole:true  },
+    100: { bg:'#a8a8a8', inner:'#c8c8c8', rim:'#2a2a2a', text:'100', hole:false },
+    500: { bg:'#a0a8b0', inner:'#c0c8d0', rim:'#1a3060', text:'500', hole:false },
+  };
+  const c = C[val];
+  const r = size / 2;
+  const holeR = size * 0.11;
+  const ts = val >= 100 ? size * 0.26 : val >= 10 ? size * 0.30 : size * 0.36;
+  let textY = c.hole ? r * 0.52 + ts * 0.38 : r + ts * 0.38;
+
+  const hole = c.hole
+    ? `<circle cx="${r}" cy="${r}" r="${holeR}" fill="white" stroke="${c.rim}" stroke-width="1.2"/>`
+    : '';
+
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="${r}" cy="${r}" r="${r-1}" fill="${c.rim}"/>
+  <circle cx="${r}" cy="${r}" r="${r-3}" fill="${c.bg}"/>
+  <circle cx="${r}" cy="${r}" r="${r-5}" fill="${c.inner}" opacity="0.5"/>
+  ${hole}
+  <text x="${r}" y="${textY}" text-anchor="middle"
+    font-size="${ts}" font-weight="900"
+    fill="${c.rim}" font-family="BIZ UDPGothic,sans-serif">${c.text}</text>
+</svg>`;
+}
+
+function noteSVG(val, w, h) {
+  const N = {
+    1000:  { bg:'#ede0c4', border:'#7a5010', inner:'#f8f0dc', text:'1000'  },
+    5000:  { bg:'#e8ddc0', border:'#5a6820', inner:'#f5ecd4', text:'5000'  },
+    10000: { bg:'#e4dccc', border:'#304878', inner:'#f2eadc', text:'10000' },
+  };
+  const c = N[val] || N[1000];
+  const ts = val >= 10000 ? h * 0.28 : h * 0.33;
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+  <rect x="1" y="1" width="${w-2}" height="${h-2}" rx="5" fill="${c.border}"/>
+  <rect x="3" y="3" width="${w-6}" height="${h-6}" rx="4" fill="${c.bg}"/>
+  <rect x="6" y="6" width="${w-12}" height="${h-12}" rx="3" fill="${c.inner}" opacity="0.55"/>
+  <text x="${w*0.5}" y="${h*0.62}" text-anchor="middle"
+    font-size="${ts}" font-weight="900"
+    fill="${c.border}" font-family="BIZ UDPGothic,sans-serif">${c.text}</text>
+</svg>`;
+}
+
+/* ===== 問題生成 ===== */
+function generateOneProblem() {
+  let amount = 0;
+  const items = [];
+  // DENOMSは高い順なので、低い順に処理したい場合はreverse
+  const ordered = [...DENOMS].sort((a, b) => b.val - a.val);
+  for (const d of ordered) {
+    const r = ranges[d.val];
+    if (r.max === 0 && r.min === 0) continue;
+    const mn = Math.min(r.min, r.max);
+    const mx = Math.max(r.min, r.max);
+    const count = mn + Math.floor(Math.random() * (mx - mn + 1));
+    for (let i = 0; i < count; i++) {
+      items.push(d);
+      amount += d.val;
+    }
+  }
+  // 何も無ければ救済
+  if (items.length === 0) {
+    const avail = DENOMS.filter(d => ranges[d.val].max > 0);
+    if (avail.length > 0) {
+      const d = avail[Math.floor(Math.random() * avail.length)];
+      items.push(d);
+      amount += d.val;
+    }
+  }
+  return { items, amount };
+}
+
+/* ===== 重なり無し配置（バラバラ） ===== */
+function placeScattered(container, items, areaW, areaH) {
+  // サイズ計算
+  const n = Math.max(items.length, 1);
+  const rawSize = Math.sqrt((areaW * areaH * 0.45) / n);
+  let coinSize = Math.max(28, Math.min(56, Math.round(rawSize)));
+
+  // 配置リトライ機構
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const noteW = Math.round(coinSize * 1.7);
+    const noteH = Math.round(coinSize * 0.98);
+    const placed = [];
+    const margin = 3;
+    let allOK = true;
+
+    const shuffled = [...items].sort(() => Math.random() - 0.5);
+
+    for (const d of shuffled) {
+      const isNote = d.type === 'note';
+      const w = isNote ? noteW : coinSize;
+      const h = isNote ? noteH : coinSize;
+      let found = false;
+      let bx = 0, by = 0;
+
+      for (let tries = 0; tries < 500; tries++) {
+        const x = Math.random() * (areaW - w - margin * 2) + margin;
+        const y = Math.random() * (areaH - h - margin * 2) + margin;
+        // 矩形衝突判定（マージン込み）
+        let collision = false;
+        for (const p of placed) {
+          if (x < p.x + p.w + margin &&
+              x + w + margin > p.x &&
+              y < p.y + p.h + margin &&
+              y + h + margin > p.y) {
+            collision = true;
+            break;
+          }
+        }
+        if (!collision) {
+          bx = x; by = y; found = true; break;
+        }
+      }
+
+      if (!found) { allOK = false; break; }
+      placed.push({ x: bx, y: by, w, h, item: d });
+    }
+
+    if (allOK) {
+      // 描画
+      for (const p of placed) {
+        const isNote = p.item.type === 'note';
+        const el = document.createElement('div');
+        el.className = 'coin-item';
+        const rot = (Math.random() - 0.5) * 18;
+        el.style.cssText = `left:${p.x}px;top:${p.y}px;width:${p.w}px;height:${p.h}px;transform:rotate(${rot}deg)`;
+        el.innerHTML = isNote ? noteSVG(p.item.val, p.w, p.h) : coinSVG(p.item.val, coinSize);
+        container.appendChild(el);
+      }
+      return;
+    }
+
+    // 失敗 → サイズを小さくしてリトライ
+    coinSize = Math.max(22, Math.floor(coinSize * 0.85));
+  }
+
+  // 最終フォールバック：整列で配置
+  placeAligned(container, items);
+}
+
+/* ===== 整列配置 ===== */
+function placeAligned(container, items) {
+  // 高い順にソート
+  const sorted = [...items].sort((a, b) => b.val - a.val);
+  const coinSize = 36;
+  const noteW = Math.round(coinSize * 1.65);
+  const noteH = Math.round(coinSize * 0.95);
+
+  for (const d of sorted) {
+    const isNote = d.type === 'note';
+    const el = document.createElement('div');
+    el.className = 'coin-item';
+    el.innerHTML = isNote ? noteSVG(d.val, noteW, noteH) : coinSVG(d.val, coinSize);
+    container.appendChild(el);
+  }
+}
+
+/* ===== 問題描画 ===== */
+function renderProblems(regen = true) {
+  const problemsEl = document.getElementById('problems');
+  problemsEl.innerHTML = '';
+
+  if (regen || currentProblems.length !== problemCount) {
+    currentProblems = [];
+    for (let i = 0; i < problemCount; i++) {
+      currentProblems.push(generateOneProblem());
+    }
+  }
+
+  currentProblems.forEach((p, idx) => {
+    const prob = document.createElement('div');
+    prob.className = 'problem';
+
+    const header = document.createElement('div');
+    header.className = 'problem-header';
+    header.innerHTML = `<span class="problem-num">${idx + 1}.</span><span class="problem-instruction">ぜんぶでいくらですか</span>`;
+    prob.appendChild(header);
+
+    const coinsArea = document.createElement('div');
+    coinsArea.className = `coins-area ${viewMode}`;
+    prob.appendChild(coinsArea);
+
+    const answerRow = document.createElement('div');
+    answerRow.className = 'answer-row';
+    answerRow.innerHTML = `
+      <span class="answer-line">${showAnswer ? p.amount : ''}</span>
+      <span class="answer-yen">円</span>
+    `;
+    prob.appendChild(answerRow);
+
+    problemsEl.appendChild(prob);
+
+    // サイズ確定後にコイン配置
+    requestAnimationFrame(() => {
+      const areaW = coinsArea.clientWidth;
+      const areaH = coinsArea.clientHeight;
+      if (viewMode === 'scattered') {
+        placeScattered(coinsArea, p.items, areaW, areaH);
+      } else {
+        placeAligned(coinsArea, p.items);
+      }
+    });
+  });
+}
+
+function regenerate() {
+  renderProblems(true);
+}
+
+/* ===== 設定操作 ===== */
+function setView(mode) {
+  viewMode = mode;
+  document.querySelectorAll('#toolbar [data-view]').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === mode);
+  });
+  renderProblems(false);
+}
+
+function changeCount(delta) {
+  problemCount = Math.max(2, Math.min(12, problemCount + delta));
+  document.getElementById('count-val').textContent = problemCount;
+  renderProblems(true);
+}
+
+function setShowAnswer(val) {
+  showAnswer = val;
+  document.getElementById('ans-off').classList.toggle('active', !val);
+  document.getElementById('ans-on').classList.toggle('active', val);
+  renderProblems(false);
+}
+
+function openSettings() {
+  buildSettingsUI();
+  document.getElementById('settings-overlay').classList.add('show');
+}
+function closeSettings() {
+  document.getElementById('settings-overlay').classList.remove('show');
+}
+
+function buildSettingsUI() {
+  const container = document.getElementById('settings-rows');
+  container.innerHTML = '';
+  // 表示順は高い順
+  const ordered = [...DENOMS];
+  for (const d of ordered) {
+    const isNote = d.type === 'note';
+    const thumb = isNote ? noteSVG(d.val, 42, 26) : coinSVG(d.val, 28);
+    const r = ranges[d.val];
+    const row = document.createElement('div');
+    row.className = 'setting-row';
+    row.innerHTML = `
+      <div class="setting-label">${thumb}<span>${d.label}</span></div>
+      <div class="setting-controls">
+        <span class="range-label">最小</span>
+        <button class="step-btn" onclick="changeRange(${d.val},'min',-1)">－</button>
+        <div class="count-val" id="rmin-${d.val}">${r.min}</div>
+        <button class="step-btn" onclick="changeRange(${d.val},'min',+1)">＋</button>
+        <span class="range-label" style="margin-left:6px">最大</span>
+        <button class="step-btn" onclick="changeRange(${d.val},'max',-1)">－</button>
+        <div class="count-val" id="rmax-${d.val}">${r.max}</div>
+        <button class="step-btn" onclick="changeRange(${d.val},'max',+1)">＋</button>
+      </div>`;
+    container.appendChild(row);
+  }
+  // 答え表示状態を反映
+  document.getElementById('ans-off').classList.toggle('active', !showAnswer);
+  document.getElementById('ans-on').classList.toggle('active', showAnswer);
+  document.getElementById('count-val').textContent = problemCount;
+}
+
+function changeRange(val, which, delta) {
+  const r = ranges[val];
+  if (which === 'min') {
+    r.min = Math.max(0, Math.min(10, r.min + delta));
+    if (r.min > r.max) r.max = r.min;
+  } else {
+    r.max = Math.max(0, Math.min(10, r.max + delta));
+    if (r.max < r.min) r.min = r.max;
+  }
+  document.getElementById(`rmin-${val}`).textContent = r.min;
+  document.getElementById(`rmax-${val}`).textContent = r.max;
+}
+
+/* ===== 初期化 ===== */
+window.addEventListener('load', () => {
+  setTimeout(() => renderProblems(), 50);
+});
+</script>
+</body>
+</html>
